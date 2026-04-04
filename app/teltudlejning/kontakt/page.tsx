@@ -113,7 +113,7 @@ export default function TeltudlejningKontaktPage() {
     <div style={pageStyle}>
       <div style={wrapperStyle}>
         <a
-          href="/teltudlejning"
+          href="/"
           style={{
             display: "inline-block",
             marginBottom: "20px",
