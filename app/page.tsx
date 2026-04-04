@@ -80,7 +80,7 @@ export default function Page() {
         </a>
 
         <a
-          href="/teltudlejning"
+          href="/teltudlejning/kontakt"
           style={{
             width: "clamp(260px, 60vw, 360px)",
             height: "clamp(260px, 60vw, 360px)",
