@@ -1,9 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
 export default function AdminLoginPage() {
+  const router = useRouter();
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -24,14 +27,15 @@ export default function AdminLoginPage() {
       return;
     }
 
-    window.location.href = "/admin";
+    router.replace("/admin");
   }
 
   return (
     <div
       style={{
         minHeight: "100vh",
-        background: "radial-gradient(circle at top, #13213b 0%, #0b1220 50%, #08101c 100%)",
+        background:
+          "radial-gradient(circle at top, #13213b 0%, #0b1220 50%, #08101c 100%)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -44,7 +48,8 @@ export default function AdminLoginPage() {
         style={{
           width: "100%",
           maxWidth: "420px",
-          background: "linear-gradient(135deg, rgba(12,27,51,0.96), rgba(8,17,31,0.98))",
+          background:
+            "linear-gradient(135deg, rgba(12,27,51,0.96), rgba(8,17,31,0.98))",
           border: "1px solid rgba(96,165,250,0.30)",
           borderRadius: "24px",
           padding: "28px",
@@ -84,7 +89,9 @@ export default function AdminLoginPage() {
         </p>
 
         <form onSubmit={handleLogin}>
-          <label style={{ display: "block", marginBottom: "8px", color: "#dbe4f0" }}>
+          <label
+            style={{ display: "block", marginBottom: "8px", color: "#dbe4f0" }}
+          >
             E-mail
           </label>
           <input
@@ -105,7 +112,9 @@ export default function AdminLoginPage() {
             }}
           />
 
-          <label style={{ display: "block", marginBottom: "8px", color: "#dbe4f0" }}>
+          <label
+            style={{ display: "block", marginBottom: "8px", color: "#dbe4f0" }}
+          >
             Adgangskode
           </label>
           <input

@@ -1,6 +1,7 @@
 "use client";
 
 import { ReactNode, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
 type AdminGuardProps = {
@@ -8,6 +9,7 @@ type AdminGuardProps = {
 };
 
 export default function AdminGuard({ children }: AdminGuardProps) {
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [allowed, setAllowed] = useState(false);
 
@@ -18,7 +20,7 @@ export default function AdminGuard({ children }: AdminGuardProps) {
       } = await supabase.auth.getSession();
 
       if (!session) {
-        window.location.href = "/admin/login";
+        router.replace("/admin/login");
         return;
       }
 
@@ -27,14 +29,15 @@ export default function AdminGuard({ children }: AdminGuardProps) {
     }
 
     checkUser();
-  }, []);
+  }, [router]);
 
   if (loading) {
     return (
       <div
         style={{
           minHeight: "100vh",
-          background: "radial-gradient(circle at top, #13213b 0%, #0b1220 50%, #08101c 100%)",
+          background:
+            "radial-gradient(circle at top, #13213b 0%, #0b1220 50%, #08101c 100%)",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
