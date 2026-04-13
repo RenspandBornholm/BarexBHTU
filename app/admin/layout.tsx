@@ -3,7 +3,7 @@ import type { Metadata, Viewport } from "next";
 export const metadata: Metadata = {
   title: "Admin Portal",
   description: "Admin til BARE og BHTU medarbejderportal",
-  manifest: "/manifest.webmanifest",
+  manifest: "/admin-manifest.webmanifest",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
