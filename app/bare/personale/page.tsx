@@ -3,47 +3,36 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
-type PersonaleData = {
-  arbejdstoej: string;
-  moedetid: string;
-  praktisk_info: string;
-};
-
-const defaultData: PersonaleData = {
-  arbejdstoej:
-    "Mød op i aftalt arbejdstøj og sørg for, at tøjet er rent og præsentabelt. Hvis der er udleveret særligt eventtøj, skal dette bruges under vagten.",
-  moedetid:
-    "Mødetid aftales for hvert event. Mød gerne 10-15 minutter før, så der er tid til at få overblik og være klar til start.",
-  praktisk_info:
-    "Hold øje med beskeder fra ansvarlige, og kontakt en leder med det samme hvis du bliver forsinket eller er forhindret. Sørg altid for at have telefon på dig under vagten.",
+type PersonaleItem = {
+  id: number;
+  title: string;
+  body: string;
+  sort_order: number;
 };
 
 export default function PersonalePage() {
-  const [data, setData] = useState<PersonaleData>(defaultData);
+  const [items, setItems] = useState<PersonaleItem[]>([]);
 
   useEffect(() => {
-    async function loadData() {
+    async function loadItems() {
       const { data, error } = await supabase
-        .from("bare_personale")
+        .from("portal_personale_items")
         .select("*")
-        .eq("section_key", "default")
-        .single();
+        .eq("section_key", "bare")
+        .order("sort_order", { ascending: true });
 
-      if (error || !data) return;
-
-      setData({
-        arbejdstoej: data.arbejdstoej || defaultData.arbejdstoej,
-        moedetid: data.moedetid || defaultData.moedetid,
-        praktisk_info: data.praktisk_info || defaultData.praktisk_info,
-      });
+      if (!error && data) {
+        setItems(data);
+      }
     }
 
-    loadData();
+    loadItems();
   }, []);
 
   const pageStyle = {
     minHeight: "100vh",
-    background: "radial-gradient(circle at top, #13213b 0%, #0b1220 50%, #08101c 100%)",
+    background:
+      "radial-gradient(circle at top, #13213b 0%, #0b1220 50%, #08101c 100%)",
     color: "white",
     fontFamily: "Arial, sans-serif",
     padding: "40px 18px 70px",
@@ -56,7 +45,8 @@ export default function PersonalePage() {
   } as const;
 
   const cardStyle = {
-    background: "linear-gradient(135deg, rgba(12,27,51,0.96), rgba(8,17,31,0.98))",
+    background:
+      "linear-gradient(135deg, rgba(12,27,51,0.96), rgba(8,17,31,0.98))",
     border: "1px solid rgba(96,165,250,0.30)",
     borderRadius: "22px",
     padding: "22px",
@@ -113,20 +103,12 @@ export default function PersonalePage() {
           Praktisk info til medarbejdere
         </p>
 
-        <div style={cardStyle}>
-          <h2 style={cardTitleStyle}>Arbejdstøj</h2>
-          <p style={textStyle}>{data.arbejdstoej}</p>
-        </div>
-
-        <div style={cardStyle}>
-          <h2 style={cardTitleStyle}>Mødetid</h2>
-          <p style={textStyle}>{data.moedetid}</p>
-        </div>
-
-        <div style={cardStyle}>
-          <h2 style={cardTitleStyle}>Praktisk info</h2>
-          <p style={textStyle}>{data.praktisk_info}</p>
-        </div>
+        {items.map((item) => (
+          <div key={item.id} style={cardStyle}>
+            <h2 style={cardTitleStyle}>{item.title}</h2>
+            <p style={textStyle}>{item.body}</p>
+          </div>
+        ))}
       </div>
     </div>
   );

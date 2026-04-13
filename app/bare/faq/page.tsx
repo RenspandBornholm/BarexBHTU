@@ -4,78 +4,36 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
 type FaqItem = {
+  id: number;
   question: string;
   answer: string;
-};
-
-type FaqData = {
-  q1: string;
-  a1: string;
-  q2: string;
-  a2: string;
-  q3: string;
-  a3: string;
-  q4: string;
-  a4: string;
-  q5: string;
-  a5: string;
-  q6: string;
-  a6: string;
-};
-
-const defaultData: FaqData = {
-  q1: "Hvornår skal jeg møde?",
-  a1: "Mødetid aftales for hvert event. Mød gerne 10-15 minutter før, så du er klar til start og kan få overblik.",
-  q2: "Hvad gør jeg, hvis jeg bliver forsinket?",
-  a2: "Kontakt en ansvarlig så hurtigt som muligt, hvis du bliver forsinket eller er forhindret i at møde.",
-  q3: "Hvor finder jeg teknikkort?",
-  a3: "Teknikkort ligger under menupunktet Teknikkort, hvor de kan åbnes direkte på telefonen eller downloades som PDF.",
-  q4: "Hvordan bestiller jeg madpakke?",
-  a4: "Madpakker bestilles dagen før inden kl. 18:00. Mere info står under menupunktet Forplejning.",
-  q5: "Hvem kontakter jeg, hvis jeg er i tvivl om noget?",
-  a5: "Gå ind under Kontakt og find den relevante person. Her står telefonnummer og e-mail samlet ét sted.",
-  q6: "Hvad gør jeg med private udlæg?",
-  a6: "Gem altid kvittering og aflever den til ansvarlig person efter aftale.",
+  sort_order: number;
 };
 
 export default function FaqPage() {
-  const [faqs, setFaqs] = useState<FaqItem[]>([
-    { question: defaultData.q1, answer: defaultData.a1 },
-    { question: defaultData.q2, answer: defaultData.a2 },
-    { question: defaultData.q3, answer: defaultData.a3 },
-    { question: defaultData.q4, answer: defaultData.a4 },
-    { question: defaultData.q5, answer: defaultData.a5 },
-    { question: defaultData.q6, answer: defaultData.a6 },
-  ]);
-
+  const [items, setItems] = useState<FaqItem[]>([]);
   const [openIndex, setOpenIndex] = useState<number | null>(0);
 
   useEffect(() => {
-    async function loadData() {
+    async function loadFaq() {
       const { data, error } = await supabase
-        .from("bare_faq")
+        .from("portal_faq_items")
         .select("*")
-        .eq("section_key", "default")
-        .single();
+        .eq("section_key", "bare")
+        .order("sort_order", { ascending: true });
 
-      if (error || !data) return;
-
-      setFaqs([
-        { question: data.q1 || defaultData.q1, answer: data.a1 || defaultData.a1 },
-        { question: data.q2 || defaultData.q2, answer: data.a2 || defaultData.a2 },
-        { question: data.q3 || defaultData.q3, answer: data.a3 || defaultData.a3 },
-        { question: data.q4 || defaultData.q4, answer: data.a4 || defaultData.a4 },
-        { question: data.q5 || defaultData.q5, answer: data.a5 || defaultData.a5 },
-        { question: data.q6 || defaultData.q6, answer: data.a6 || defaultData.a6 },
-      ]);
+      if (!error && data) {
+        setItems(data);
+      }
     }
 
-    loadData();
+    loadFaq();
   }, []);
 
   const pageStyle = {
     minHeight: "100vh",
-    background: "radial-gradient(circle at top, #13213b 0%, #0b1220 50%, #08101c 100%)",
+    background:
+      "radial-gradient(circle at top, #13213b 0%, #0b1220 50%, #08101c 100%)",
     color: "white",
     fontFamily: "Arial, sans-serif",
     padding: "40px 18px 70px",
@@ -124,14 +82,15 @@ export default function FaqPage() {
           Ofte stillede spørgsmål og svar
         </p>
 
-        {faqs.map((faq, index) => {
+        {items.map((item, index) => {
           const isOpen = openIndex === index;
 
           return (
             <div
-              key={faq.question + index}
+              key={item.id}
               style={{
-                background: "linear-gradient(135deg, rgba(12,27,51,0.96), rgba(8,17,31,0.98))",
+                background:
+                  "linear-gradient(135deg, rgba(12,27,51,0.96), rgba(8,17,31,0.98))",
                 border: "1px solid rgba(96,165,250,0.30)",
                 borderRadius: "22px",
                 marginBottom: "16px",
@@ -162,7 +121,7 @@ export default function FaqPage() {
                     lineHeight: 1.3,
                   }}
                 >
-                  {faq.question}
+                  {item.question}
                 </span>
 
                 <span
@@ -187,7 +146,7 @@ export default function FaqPage() {
                     lineHeight: 1.6,
                   }}
                 >
-                  {faq.answer}
+                  {item.answer}
                 </div>
               )}
             </div>

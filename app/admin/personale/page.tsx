@@ -4,72 +4,108 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import AdminGuard from "../AdminGuard";
 
-type PersonaleData = {
-  arbejdstoej: string;
-  moedetid: string;
-  praktisk_info: string;
-};
-
-const defaultData: PersonaleData = {
-  arbejdstoej:
-    "Mød op i aftalt arbejdstøj og sørg for, at tøjet er rent og præsentabelt. Hvis der er udleveret særligt eventtøj, skal dette bruges under vagten.",
-  moedetid:
-    "Mødetid aftales for hvert event. Mød gerne 10-15 minutter før, så der er tid til at få overblik og være klar til start.",
-  praktisk_info:
-    "Hold øje med beskeder fra ansvarlige, og kontakt en leder med det samme hvis du bliver forsinket eller er forhindret. Sørg altid for at have telefon på dig under vagten.",
+type PersonaleItem = {
+  id: number;
+  section_key: string;
+  title: string;
+  body: string;
+  sort_order: number;
 };
 
 export default function AdminPersonalePage() {
-  const [arbejdstoej, setArbejdstoej] = useState(defaultData.arbejdstoej);
-  const [moedetid, setMoedetid] = useState(defaultData.moedetid);
-  const [praktiskInfo, setPraktiskInfo] = useState(defaultData.praktisk_info);
+  const [items, setItems] = useState<PersonaleItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [showSuccess, setShowSuccess] = useState(false);
 
   useEffect(() => {
-    async function loadData() {
-      const { data, error } = await supabase
-        .from("bare_personale")
-        .select("*")
-        .eq("section_key", "default")
-        .single();
-
-      if (error || !data) return;
-
-      setArbejdstoej(data.arbejdstoej || defaultData.arbejdstoej);
-      setMoedetid(data.moedetid || defaultData.moedetid);
-      setPraktiskInfo(data.praktisk_info || defaultData.praktisk_info);
-    }
-
-    loadData();
+    loadItems();
   }, []);
 
-  async function handleSave(e: React.FormEvent) {
-    e.preventDefault();
+  async function loadItems() {
+    setLoading(true);
 
-    const { error } = await supabase.from("bare_personale").upsert(
-      {
-        section_key: "default",
-        arbejdstoej,
-        moedetid,
-        praktisk_info: praktiskInfo,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "section_key" }
+    const { data, error } = await supabase
+      .from("portal_personale_items")
+      .select("*")
+      .eq("section_key", "bare")
+      .order("sort_order", { ascending: true });
+
+    if (!error && data) {
+      setItems(data);
+    }
+
+    setLoading(false);
+  }
+
+  function updateItem(
+    id: number,
+    field: keyof PersonaleItem,
+    value: string | number
+  ) {
+    setItems((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, [field]: value } : item))
     );
+  }
+
+  async function addNewItem() {
+    const nextOrder =
+      items.length > 0 ? Math.max(...items.map((i) => i.sort_order)) + 1 : 1;
+
+    const { error } = await supabase.from("portal_personale_items").insert({
+      section_key: "bare",
+      title: "Nyt punkt",
+      body: "Skriv tekst her...",
+      sort_order: nextOrder,
+    });
 
     if (error) {
-      alert("Der skete en fejl ved gem.");
+      alert("Kunne ikke oprette nyt punkt.");
       return;
+    }
+
+    loadItems();
+  }
+
+  async function deleteItem(id: number) {
+    const confirmed = window.confirm(
+      "Er du sikker på at du vil slette dette punkt?"
+    );
+    if (!confirmed) return;
+
+    const { error } = await supabase
+      .from("portal_personale_items")
+      .delete()
+      .eq("id", id);
+
+    if (error) {
+      alert("Kunne ikke slette punktet.");
+      return;
+    }
+
+    loadItems();
+  }
+
+  async function handleSave() {
+    for (const item of items) {
+      const { error } = await supabase
+        .from("portal_personale_items")
+        .update({
+          title: item.title,
+          body: item.body,
+          sort_order: item.sort_order,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", item.id);
+
+      if (error) {
+        alert("Der skete en fejl ved gem.");
+        return;
+      }
     }
 
     setShowSuccess(true);
     setTimeout(() => setShowSuccess(false), 1800);
-  }
-
-  function handleReset() {
-    setArbejdstoej(defaultData.arbejdstoej);
-    setMoedetid(defaultData.moedetid);
-    setPraktiskInfo(defaultData.praktisk_info);
+    loadItems();
   }
 
   const pageStyle = {
@@ -83,7 +119,7 @@ export default function AdminPersonalePage() {
 
   const wrapperStyle = {
     width: "100%",
-    maxWidth: "760px",
+    maxWidth: "900px",
     margin: "0 auto",
   } as const;
 
@@ -105,16 +141,20 @@ export default function AdminPersonalePage() {
     fontSize: "15px",
   } as const;
 
-  const textareaStyle = {
+  const inputStyle = {
     width: "100%",
     padding: "14px",
-    marginBottom: "18px",
+    marginBottom: "16px",
     borderRadius: "14px",
     border: "1px solid rgba(255,255,255,0.15)",
     background: "#0f172a",
     color: "white",
     fontSize: "16px",
     boxSizing: "border-box" as const,
+  };
+
+  const textareaStyle = {
+    ...inputStyle,
     minHeight: "140px",
     resize: "vertical" as const,
   };
@@ -135,70 +175,112 @@ export default function AdminPersonalePage() {
             ← Tilbage til admin
           </a>
 
-          <h1
+          <div
             style={{
-              textAlign: "center",
-              fontSize: "clamp(30px, 6vw, 44px)",
-              margin: "0 0 10px 0",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: "12px",
+              flexWrap: "wrap",
+              marginBottom: "20px",
             }}
           >
-            Admin · Personale
-          </h1>
+            <div>
+              <h1
+                style={{
+                  fontSize: "clamp(30px, 6vw, 44px)",
+                  margin: "0 0 10px 0",
+                }}
+              >
+                Admin · Personale
+              </h1>
 
-          <p
-            style={{
-              textAlign: "center",
-              color: "#cbd5e1",
-              margin: "0 0 30px 0",
-              fontSize: "16px",
-            }}
-          >
-            Ret info om arbejdstøj, mødetid og praktisk info
-          </p>
-
-          <form onSubmit={handleSave}>
-            <div style={cardStyle}>
-              <h2 style={{ marginTop: 0, marginBottom: "18px" }}>Arbejdstøj</h2>
-              <label style={labelStyle}>Tekst</label>
-              <textarea
-                value={arbejdstoej}
-                onChange={(e) => setArbejdstoej(e.target.value)}
-                style={textareaStyle}
-              />
+              <p
+                style={{
+                  color: "#cbd5e1",
+                  margin: 0,
+                  fontSize: "16px",
+                }}
+              >
+                Tilføj, ret og slet personale-punkter uden ny deploy
+              </p>
             </div>
 
-            <div style={cardStyle}>
-              <h2 style={{ marginTop: 0, marginBottom: "18px" }}>Mødetid</h2>
-              <label style={labelStyle}>Tekst</label>
-              <textarea
-                value={moedetid}
-                onChange={(e) => setMoedetid(e.target.value)}
-                style={textareaStyle}
-              />
-            </div>
-
-            <div style={cardStyle}>
-              <h2 style={{ marginTop: 0, marginBottom: "18px" }}>Praktisk info</h2>
-              <label style={labelStyle}>Tekst</label>
-              <textarea
-                value={praktiskInfo}
-                onChange={(e) => setPraktiskInfo(e.target.value)}
-                style={textareaStyle}
-              />
-            </div>
-
-            <div
+            <button
+              type="button"
+              onClick={addNewItem}
               style={{
-                display: "flex",
-                gap: "12px",
-                flexWrap: "wrap",
+                padding: "12px 16px",
+                borderRadius: "14px",
+                border: "none",
+                background: "#ffffff",
+                color: "#0b1220",
+                fontWeight: "bold",
+                cursor: "pointer",
               }}
             >
+              + Tilføj punkt
+            </button>
+          </div>
+
+          {loading ? (
+            <p>Indlæser...</p>
+          ) : (
+            <>
+              {items.map((item) => (
+                <div key={item.id} style={cardStyle}>
+                  <label style={labelStyle}>Titel</label>
+                  <input
+                    type="text"
+                    value={item.title}
+                    onChange={(e) =>
+                      updateItem(item.id, "title", e.target.value)
+                    }
+                    style={inputStyle}
+                  />
+
+                  <label style={labelStyle}>Tekst</label>
+                  <textarea
+                    value={item.body}
+                    onChange={(e) =>
+                      updateItem(item.id, "body", e.target.value)
+                    }
+                    style={textareaStyle}
+                  />
+
+                  <label style={labelStyle}>Rækkefølge</label>
+                  <input
+                    type="number"
+                    value={item.sort_order}
+                    onChange={(e) =>
+                      updateItem(item.id, "sort_order", Number(e.target.value))
+                    }
+                    style={inputStyle}
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() => deleteItem(item.id)}
+                    style={{
+                      padding: "12px 16px",
+                      borderRadius: "14px",
+                      border: "1px solid rgba(255,255,255,0.18)",
+                      background: "transparent",
+                      color: "#fca5a5",
+                      fontWeight: "bold",
+                      cursor: "pointer",
+                    }}
+                  >
+                    Slet punkt
+                  </button>
+                </div>
+              ))}
+
               <button
-                type="submit"
+                type="button"
+                onClick={handleSave}
                 style={{
-                  flex: 1,
-                  minWidth: "220px",
+                  width: "100%",
                   padding: "16px",
                   borderRadius: "16px",
                   border: "none",
@@ -212,27 +294,8 @@ export default function AdminPersonalePage() {
               >
                 Gem ændringer
               </button>
-
-              <button
-                type="button"
-                onClick={handleReset}
-                style={{
-                  flex: 1,
-                  minWidth: "220px",
-                  padding: "16px",
-                  borderRadius: "16px",
-                  border: "1px solid rgba(255,255,255,0.18)",
-                  background: "transparent",
-                  color: "#dbe4f0",
-                  fontWeight: "bold",
-                  fontSize: "16px",
-                  cursor: "pointer",
-                }}
-              >
-                Nulstil felter
-              </button>
-            </div>
-          </form>
+            </>
+          )}
         </div>
       </div>
 

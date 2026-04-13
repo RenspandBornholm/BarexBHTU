@@ -4,101 +4,114 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import AdminGuard from "../AdminGuard";
 
-type FaqData = {
-  q1: string;
-  a1: string;
-  q2: string;
-  a2: string;
-  q3: string;
-  a3: string;
-  q4: string;
-  a4: string;
-  q5: string;
-  a5: string;
-  q6: string;
-  a6: string;
-};
-
-const defaultData: FaqData = {
-  q1: "Hvornår skal jeg møde?",
-  a1: "Mødetid aftales for hvert event. Mød gerne 10-15 minutter før, så du er klar til start og kan få overblik.",
-  q2: "Hvad gør jeg, hvis jeg bliver forsinket?",
-  a2: "Kontakt en ansvarlig så hurtigt som muligt, hvis du bliver forsinket eller er forhindret i at møde.",
-  q3: "Hvor finder jeg teknikkort?",
-  a3: "Teknikkort ligger under menupunktet Teknikkort, hvor de kan åbnes direkte på telefonen eller downloades som PDF.",
-  q4: "Hvordan bestiller jeg madpakke?",
-  a4: "Madpakker bestilles dagen før inden kl. 18:00. Mere info står under menupunktet Forplejning.",
-  q5: "Hvem kontakter jeg, hvis jeg er i tvivl om noget?",
-  a5: "Gå ind under Kontakt og find den relevante person. Her står telefonnummer og e-mail samlet ét sted.",
-  q6: "Hvad gør jeg med private udlæg?",
-  a6: "Gem altid kvittering og aflever den til ansvarlig person efter aftale.",
+type FaqItem = {
+  id: number;
+  section_key: string;
+  question: string;
+  answer: string;
+  sort_order: number;
 };
 
 export default function AdminFaqPage() {
-  const [data, setData] = useState<FaqData>(defaultData);
+  const [items, setItems] = useState<FaqItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [showSuccess, setShowSuccess] = useState(false);
 
   useEffect(() => {
-    async function loadData() {
-      const { data: row, error } = await supabase
-        .from("bare_faq")
-        .select("*")
-        .eq("section_key", "default")
-        .single();
-
-      if (error || !row) return;
-
-      setData({
-        q1: row.q1 || defaultData.q1,
-        a1: row.a1 || defaultData.a1,
-        q2: row.q2 || defaultData.q2,
-        a2: row.a2 || defaultData.a2,
-        q3: row.q3 || defaultData.q3,
-        a3: row.a3 || defaultData.a3,
-        q4: row.q4 || defaultData.q4,
-        a4: row.a4 || defaultData.a4,
-        q5: row.q5 || defaultData.q5,
-        a5: row.a5 || defaultData.a5,
-        q6: row.q6 || defaultData.q6,
-        a6: row.a6 || defaultData.a6,
-      });
-    }
-
-    loadData();
+    loadFaq();
   }, []);
 
-  function updateField<K extends keyof FaqData>(key: K, value: FaqData[K]) {
-    setData((prev) => ({ ...prev, [key]: value }));
+  async function loadFaq() {
+    setLoading(true);
+
+    const { data, error } = await supabase
+      .from("portal_faq_items")
+      .select("*")
+      .eq("section_key", "bare")
+      .order("sort_order", { ascending: true });
+
+    if (!error && data) {
+      setItems(data);
+    }
+
+    setLoading(false);
   }
 
-  async function handleSave(e: React.FormEvent) {
-    e.preventDefault();
-
-    const { error } = await supabase.from("bare_faq").upsert(
-      {
-        section_key: "default",
-        ...data,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "section_key" }
+  function updateItem(
+    id: number,
+    field: keyof FaqItem,
+    value: string | number
+  ) {
+    setItems((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, [field]: value } : item))
     );
+  }
+
+  async function addNewItem() {
+    const nextOrder =
+      items.length > 0 ? Math.max(...items.map((i) => i.sort_order)) + 1 : 1;
+
+    const { error } = await supabase.from("portal_faq_items").insert({
+      section_key: "bare",
+      question: "Nyt spørgsmål",
+      answer: "Skriv svar her...",
+      sort_order: nextOrder,
+    });
 
     if (error) {
-      alert("Der skete en fejl ved gem.");
+      alert("Kunne ikke oprette nyt spørgsmål.");
       return;
+    }
+
+    loadFaq();
+  }
+
+  async function deleteItem(id: number) {
+    const confirmed = window.confirm(
+      "Er du sikker på at du vil slette dette spørgsmål?"
+    );
+    if (!confirmed) return;
+
+    const { error } = await supabase
+      .from("portal_faq_items")
+      .delete()
+      .eq("id", id);
+
+    if (error) {
+      alert("Kunne ikke slette spørgsmålet.");
+      return;
+    }
+
+    loadFaq();
+  }
+
+  async function handleSave() {
+    for (const item of items) {
+      const { error } = await supabase
+        .from("portal_faq_items")
+        .update({
+          question: item.question,
+          answer: item.answer,
+          sort_order: item.sort_order,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", item.id);
+
+      if (error) {
+        alert("Der skete en fejl ved gem.");
+        return;
+      }
     }
 
     setShowSuccess(true);
     setTimeout(() => setShowSuccess(false), 1800);
-  }
-
-  function handleReset() {
-    setData(defaultData);
+    loadFaq();
   }
 
   const pageStyle = {
     minHeight: "100vh",
-    background: "radial-gradient(circle at top, #13213b 0%, #0b1220 50%, #08101c 100%)",
+    background:
+      "radial-gradient(circle at top, #13213b 0%, #0b1220 50%, #08101c 100%)",
     color: "white",
     fontFamily: "Arial, sans-serif",
     padding: "40px 18px 70px",
@@ -106,12 +119,13 @@ export default function AdminFaqPage() {
 
   const wrapperStyle = {
     width: "100%",
-    maxWidth: "820px",
+    maxWidth: "900px",
     margin: "0 auto",
   } as const;
 
   const cardStyle = {
-    background: "linear-gradient(135deg, rgba(12,27,51,0.96), rgba(8,17,31,0.98))",
+    background:
+      "linear-gradient(135deg, rgba(12,27,51,0.96), rgba(8,17,31,0.98))",
     border: "1px solid rgba(96,165,250,0.30)",
     borderRadius: "22px",
     padding: "22px",
@@ -130,7 +144,7 @@ export default function AdminFaqPage() {
   const inputStyle = {
     width: "100%",
     padding: "14px",
-    marginBottom: "18px",
+    marginBottom: "16px",
     borderRadius: "14px",
     border: "1px solid rgba(255,255,255,0.15)",
     background: "#0f172a",
@@ -141,121 +155,148 @@ export default function AdminFaqPage() {
 
   const textareaStyle = {
     ...inputStyle,
-    minHeight: "110px",
+    minHeight: "120px",
     resize: "vertical" as const,
   };
 
   return (
-  <AdminGuard>
-    <div style={pageStyle}>
-      <div style={wrapperStyle}>
-        <a
-          href="/admin"
-          style={{
-            display: "inline-block",
-            marginBottom: "20px",
-            color: "#cbd5e1",
-            textDecoration: "none",
-          }}
-        >
-          ← Tilbage til admin
-        </a>
-
-        <h1
-          style={{
-            textAlign: "center",
-            fontSize: "clamp(30px, 6vw, 44px)",
-            margin: "0 0 10px 0",
-          }}
-        >
-          Admin · FAQ
-        </h1>
-
-        <p
-          style={{
-            textAlign: "center",
-            color: "#cbd5e1",
-            margin: "0 0 30px 0",
-            fontSize: "16px",
-          }}
-        >
-          Ret spørgsmål og svar til medarbejderportalen
-        </p>
-
-        <form onSubmit={handleSave}>
-          {[1, 2, 3, 4, 5, 6].map((num) => (
-            <div key={num} style={cardStyle}>
-              <h2 style={{ marginTop: 0, marginBottom: "18px" }}>
-                Spørgsmål {num}
-              </h2>
-
-              <label style={labelStyle}>Spørgsmål</label>
-              <input
-                type="text"
-                value={data[`q${num}` as keyof FaqData] as string}
-                onChange={(e) =>
-                  updateField(`q${num}` as keyof FaqData, e.target.value)
-                }
-                style={inputStyle}
-              />
-
-              <label style={labelStyle}>Svar</label>
-              <textarea
-                value={data[`a${num}` as keyof FaqData] as string}
-                onChange={(e) =>
-                  updateField(`a${num}` as keyof FaqData, e.target.value)
-                }
-                style={textareaStyle}
-              />
-            </div>
-          ))}
+    <AdminGuard>
+      <div style={pageStyle}>
+        <div style={wrapperStyle}>
+          <a
+            href="/admin"
+            style={{
+              display: "inline-block",
+              marginBottom: "20px",
+              color: "#cbd5e1",
+              textDecoration: "none",
+            }}
+          >
+            ← Tilbage til admin
+          </a>
 
           <div
             style={{
               display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
               gap: "12px",
               flexWrap: "wrap",
+              marginBottom: "20px",
             }}
           >
+            <div>
+              <h1
+                style={{
+                  fontSize: "clamp(30px, 6vw, 44px)",
+                  margin: "0 0 10px 0",
+                }}
+              >
+                Admin · FAQ
+              </h1>
+
+              <p
+                style={{
+                  color: "#cbd5e1",
+                  margin: 0,
+                  fontSize: "16px",
+                }}
+              >
+                Tilføj, ret og slet spørgsmål uden ny deploy
+              </p>
+            </div>
+
             <button
-              type="submit"
+              type="button"
+              onClick={addNewItem}
               style={{
-                flex: 1,
-                minWidth: "220px",
-                padding: "16px",
-                borderRadius: "16px",
+                padding: "12px 16px",
+                borderRadius: "14px",
                 border: "none",
                 background: "#ffffff",
                 color: "#0b1220",
                 fontWeight: "bold",
-                fontSize: "16px",
-                cursor: "pointer",
-                boxShadow: "0 12px 30px rgba(0,0,0,0.25)",
-              }}
-            >
-              Gem ændringer
-            </button>
-
-            <button
-              type="button"
-              onClick={handleReset}
-              style={{
-                flex: 1,
-                minWidth: "220px",
-                padding: "16px",
-                borderRadius: "16px",
-                border: "1px solid rgba(255,255,255,0.18)",
-                background: "transparent",
-                color: "#dbe4f0",
-                fontWeight: "bold",
-                fontSize: "16px",
                 cursor: "pointer",
               }}
             >
-              Nulstil felter
+              + Tilføj spørgsmål
             </button>
           </div>
-        </form>
+
+          {loading ? (
+            <p>Indlæser...</p>
+          ) : (
+            <>
+              {items.map((item) => (
+                <div key={item.id} style={cardStyle}>
+                  <label style={labelStyle}>Spørgsmål</label>
+                  <input
+                    type="text"
+                    value={item.question}
+                    onChange={(e) =>
+                      updateItem(item.id, "question", e.target.value)
+                    }
+                    style={inputStyle}
+                  />
+
+                  <label style={labelStyle}>Svar</label>
+                  <textarea
+                    value={item.answer}
+                    onChange={(e) =>
+                      updateItem(item.id, "answer", e.target.value)
+                    }
+                    style={textareaStyle}
+                  />
+
+                  <label style={labelStyle}>Rækkefølge</label>
+                  <input
+                    type="number"
+                    value={item.sort_order}
+                    onChange={(e) =>
+                      updateItem(item.id, "sort_order", Number(e.target.value))
+                    }
+                    style={inputStyle}
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() => deleteItem(item.id)}
+                    style={{
+                      padding: "12px 16px",
+                      borderRadius: "14px",
+                      border: "1px solid rgba(255,255,255,0.18)",
+                      background: "transparent",
+                      color: "#fca5a5",
+                      fontWeight: "bold",
+                      cursor: "pointer",
+                    }}
+                  >
+                    Slet spørgsmål
+                  </button>
+                </div>
+              ))}
+
+              <button
+                type="button"
+                onClick={handleSave}
+                style={{
+                  width: "100%",
+                  padding: "16px",
+                  borderRadius: "16px",
+                  border: "none",
+                  background: "#ffffff",
+                  color: "#0b1220",
+                  fontWeight: "bold",
+                  fontSize: "16px",
+                  cursor: "pointer",
+                  boxShadow: "0 12px 30px rgba(0,0,0,0.25)",
+                }}
+              >
+                Gem ændringer
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       {showSuccess && (
@@ -311,7 +352,6 @@ export default function AdminFaqPage() {
           </div>
         </div>
       )}
-    </div>
     </AdminGuard>
   );
 }

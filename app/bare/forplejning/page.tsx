@@ -3,51 +3,30 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
-type ForplejningData = {
-  morgenmad: string;
-  frokost: string;
-  aftensmad: string;
-  menu: string;
-  udlaeg: string;
-  madpakke: string;
-};
-
-const defaultData: ForplejningData = {
-  morgenmad: "07:00 - 09:00",
-  frokost: "12:00 - 13:00",
-  aftensmad: "18:00 - 20:00",
-  menu: "Menu vil blive opdateret løbende.",
-  udlaeg: "Hvis du laver udlæg, så gem kvittering og aflever til ansvarlig.",
-  madpakke: "Madpakker bestilles dagen før inden kl. 18:00.",
+type ForplejningItem = {
+  id: number;
+  title: string;
+  body: string;
+  sort_order: number;
 };
 
 export default function ForplejningPage() {
-  const [data, setData] = useState<ForplejningData>(defaultData);
+  const [items, setItems] = useState<ForplejningItem[]>([]);
 
   useEffect(() => {
-    async function loadData() {
+    async function loadItems() {
       const { data, error } = await supabase
-        .from("bare_forplejning")
+        .from("portal_forplejning_items")
         .select("*")
-        .eq("section_key", "default")
-        .single();
+        .eq("section_key", "bare")
+        .order("sort_order", { ascending: true });
 
-      if (error || !data) {
-        setData(defaultData);
-        return;
+      if (!error && data) {
+        setItems(data);
       }
-
-      setData({
-        morgenmad: data.morgenmad || defaultData.morgenmad,
-        frokost: data.frokost || defaultData.frokost,
-        aftensmad: data.aftensmad || defaultData.aftensmad,
-        menu: data.menu || defaultData.menu,
-        udlaeg: data.udlaeg || defaultData.udlaeg,
-        madpakke: data.madpakke || defaultData.madpakke,
-      });
     }
 
-    loadData();
+    loadItems();
   }, []);
 
   const pageStyle = {
@@ -61,7 +40,7 @@ export default function ForplejningPage() {
 
   const wrapperStyle = {
     width: "100%",
-    maxWidth: "620px",
+    maxWidth: "700px",
     margin: "0 auto",
   } as const;
 
@@ -73,6 +52,20 @@ export default function ForplejningPage() {
     padding: "20px",
     marginBottom: "20px",
     boxShadow: "0 15px 40px rgba(0,0,0,0.3)",
+  } as const;
+
+  const titleStyle = {
+    margin: "0 0 10px 0",
+    fontSize: "26px",
+    fontWeight: "bold",
+  } as const;
+
+  const textStyle = {
+    margin: 0,
+    color: "#dbe4f0",
+    fontSize: "16px",
+    lineHeight: 1.6,
+    whiteSpace: "pre-line" as const,
   } as const;
 
   return (
@@ -110,27 +103,12 @@ export default function ForplejningPage() {
           Alt info om mad og pauser
         </p>
 
-        <div style={cardStyle}>
-          <h2>Spisetider</h2>
-          <p>Morgenmad: {data.morgenmad}</p>
-          <p>Frokost: {data.frokost}</p>
-          <p>Aftensmad: {data.aftensmad}</p>
-        </div>
-
-        <div style={cardStyle}>
-          <h2>Menu</h2>
-          <p>{data.menu}</p>
-        </div>
-
-        <div style={cardStyle}>
-          <h2>Private køb / udlæg</h2>
-          <p>{data.udlaeg}</p>
-        </div>
-
-        <div style={cardStyle}>
-          <h2>Bestil madpakke</h2>
-          <p>{data.madpakke}</p>
-        </div>
+        {items.map((item) => (
+          <div key={item.id} style={cardStyle}>
+            <h2 style={titleStyle}>{item.title}</h2>
+            <p style={textStyle}>{item.body}</p>
+          </div>
+        ))}
       </div>
     </div>
   );

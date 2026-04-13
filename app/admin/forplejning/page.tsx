@@ -4,90 +4,108 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import AdminGuard from "../AdminGuard";
 
-type ForplejningData = {
-  morgenmad: string;
-  frokost: string;
-  aftensmad: string;
-  menu: string;
-  udlaeg: string;
-  madpakke: string;
-};
-
-const defaultData: ForplejningData = {
-  morgenmad: "07:00 - 09:00",
-  frokost: "12:00 - 13:00",
-  aftensmad: "18:00 - 20:00",
-  menu: "Menu vil blive opdateret løbende.",
-  udlaeg: "Hvis du laver udlæg, så gem kvittering og aflever til ansvarlig.",
-  madpakke: "Madpakker bestilles dagen før inden kl. 18:00.",
+type ForplejningItem = {
+  id: number;
+  section_key: string;
+  title: string;
+  body: string;
+  sort_order: number;
 };
 
 export default function AdminForplejningPage() {
-  const [morgenmad, setMorgenmad] = useState(defaultData.morgenmad);
-  const [frokost, setFrokost] = useState(defaultData.frokost);
-  const [aftensmad, setAftensmad] = useState(defaultData.aftensmad);
-  const [menu, setMenu] = useState(defaultData.menu);
-  const [udlaeg, setUdlaeg] = useState(defaultData.udlaeg);
-  const [madpakke, setMadpakke] = useState(defaultData.madpakke);
+  const [items, setItems] = useState<ForplejningItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [showSuccess, setShowSuccess] = useState(false);
 
   useEffect(() => {
-    async function loadData() {
-      const { data, error } = await supabase
-        .from("bare_forplejning")
-        .select("*")
-        .eq("section_key", "default")
-        .single();
-
-      if (error || !data) return;
-
-      setMorgenmad(data.morgenmad || defaultData.morgenmad);
-      setFrokost(data.frokost || defaultData.frokost);
-      setAftensmad(data.aftensmad || defaultData.aftensmad);
-      setMenu(data.menu || defaultData.menu);
-      setUdlaeg(data.udlaeg || defaultData.udlaeg);
-      setMadpakke(data.madpakke || defaultData.madpakke);
-    }
-
-    loadData();
+    loadItems();
   }, []);
 
-  async function handleSave(e: React.FormEvent) {
-    e.preventDefault();
+  async function loadItems() {
+    setLoading(true);
 
-    const { error } = await supabase.from("bare_forplejning").upsert(
-      {
-        section_key: "default",
-        morgenmad,
-        frokost,
-        aftensmad,
-        menu,
-        udlaeg,
-        madpakke,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "section_key" }
+    const { data, error } = await supabase
+      .from("portal_forplejning_items")
+      .select("*")
+      .eq("section_key", "bare")
+      .order("sort_order", { ascending: true });
+
+    if (!error && data) {
+      setItems(data);
+    }
+
+    setLoading(false);
+  }
+
+  function updateItem(
+    id: number,
+    field: keyof ForplejningItem,
+    value: string | number
+  ) {
+    setItems((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, [field]: value } : item))
     );
+  }
+
+  async function addNewItem() {
+    const nextOrder =
+      items.length > 0 ? Math.max(...items.map((i) => i.sort_order)) + 1 : 1;
+
+    const { error } = await supabase.from("portal_forplejning_items").insert({
+      section_key: "bare",
+      title: "Nyt punkt",
+      body: "Skriv tekst her...",
+      sort_order: nextOrder,
+    });
 
     if (error) {
-      alert("Der skete en fejl ved gem.");
+      alert("Kunne ikke oprette nyt punkt.");
       return;
     }
 
-    setShowSuccess(true);
-
-    setTimeout(() => {
-      setShowSuccess(false);
-    }, 1800);
+    loadItems();
   }
 
-  async function handleReset() {
-    setMorgenmad(defaultData.morgenmad);
-    setFrokost(defaultData.frokost);
-    setAftensmad(defaultData.aftensmad);
-    setMenu(defaultData.menu);
-    setUdlaeg(defaultData.udlaeg);
-    setMadpakke(defaultData.madpakke);
+  async function deleteItem(id: number) {
+    const confirmed = window.confirm(
+      "Er du sikker på at du vil slette dette punkt?"
+    );
+    if (!confirmed) return;
+
+    const { error } = await supabase
+      .from("portal_forplejning_items")
+      .delete()
+      .eq("id", id);
+
+    if (error) {
+      alert("Kunne ikke slette punktet.");
+      return;
+    }
+
+    loadItems();
+  }
+
+  async function handleSave() {
+    for (const item of items) {
+      const { error } = await supabase
+        .from("portal_forplejning_items")
+        .update({
+          title: item.title,
+          body: item.body,
+          sort_order: item.sort_order,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", item.id);
+
+      if (error) {
+        alert("Der skete en fejl ved gem.");
+        return;
+      }
+    }
+
+    setShowSuccess(true);
+    setTimeout(() => setShowSuccess(false), 1800);
+    loadItems();
   }
 
   const pageStyle = {
@@ -101,7 +119,7 @@ export default function AdminForplejningPage() {
 
   const wrapperStyle = {
     width: "100%",
-    maxWidth: "760px",
+    maxWidth: "900px",
     margin: "0 auto",
   } as const;
 
@@ -126,7 +144,7 @@ export default function AdminForplejningPage() {
   const inputStyle = {
     width: "100%",
     padding: "14px",
-    marginBottom: "18px",
+    marginBottom: "16px",
     borderRadius: "14px",
     border: "1px solid rgba(255,255,255,0.15)",
     background: "#0f172a",
@@ -137,154 +155,148 @@ export default function AdminForplejningPage() {
 
   const textareaStyle = {
     ...inputStyle,
-    minHeight: "110px",
+    minHeight: "140px",
     resize: "vertical" as const,
   };
 
   return (
-  <AdminGuard>
-    <div style={pageStyle}>
-      <div style={wrapperStyle}>
-        <a
-          href="/admin"
-          style={{
-            display: "inline-block",
-            marginBottom: "20px",
-            color: "#cbd5e1",
-            textDecoration: "none",
-          }}
-        >
-          ← Tilbage til admin
-        </a>
-
-        <h1
-          style={{
-            textAlign: "center",
-            fontSize: "clamp(30px, 6vw, 44px)",
-            margin: "0 0 10px 0",
-          }}
-        >
-          Admin · Forplejning
-        </h1>
-
-        <p
-          style={{
-            textAlign: "center",
-            color: "#cbd5e1",
-            margin: "0 0 30px 0",
-            fontSize: "16px",
-          }}
-        >
-          Ret spisetider og info til medarbejderportalen
-        </p>
-
-        <form onSubmit={handleSave}>
-          <div style={cardStyle}>
-            <h2 style={{ marginTop: 0, marginBottom: "18px" }}>Spisetider</h2>
-
-            <label style={labelStyle}>Morgenmad</label>
-            <input
-              type="text"
-              value={morgenmad}
-              onChange={(e) => setMorgenmad(e.target.value)}
-              style={inputStyle}
-            />
-
-            <label style={labelStyle}>Frokost</label>
-            <input
-              type="text"
-              value={frokost}
-              onChange={(e) => setFrokost(e.target.value)}
-              style={inputStyle}
-            />
-
-            <label style={labelStyle}>Aftensmad</label>
-            <input
-              type="text"
-              value={aftensmad}
-              onChange={(e) => setAftensmad(e.target.value)}
-              style={inputStyle}
-            />
-          </div>
-
-          <div style={cardStyle}>
-            <h2 style={{ marginTop: 0, marginBottom: "18px" }}>Menu</h2>
-            <label style={labelStyle}>Tekst</label>
-            <textarea
-              value={menu}
-              onChange={(e) => setMenu(e.target.value)}
-              style={textareaStyle}
-            />
-          </div>
-
-          <div style={cardStyle}>
-            <h2 style={{ marginTop: 0, marginBottom: "18px" }}>
-              Private køb / udlæg
-            </h2>
-            <label style={labelStyle}>Tekst</label>
-            <textarea
-              value={udlaeg}
-              onChange={(e) => setUdlaeg(e.target.value)}
-              style={textareaStyle}
-            />
-          </div>
-
-          <div style={cardStyle}>
-            <h2 style={{ marginTop: 0, marginBottom: "18px" }}>Madpakker</h2>
-            <label style={labelStyle}>Tekst</label>
-            <textarea
-              value={madpakke}
-              onChange={(e) => setMadpakke(e.target.value)}
-              style={textareaStyle}
-            />
-          </div>
+    <AdminGuard>
+      <div style={pageStyle}>
+        <div style={wrapperStyle}>
+          <a
+            href="/admin"
+            style={{
+              display: "inline-block",
+              marginBottom: "20px",
+              color: "#cbd5e1",
+              textDecoration: "none",
+            }}
+          >
+            ← Tilbage til admin
+          </a>
 
           <div
             style={{
               display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
               gap: "12px",
               flexWrap: "wrap",
+              marginBottom: "20px",
             }}
           >
+            <div>
+              <h1
+                style={{
+                  fontSize: "clamp(30px, 6vw, 44px)",
+                  margin: "0 0 10px 0",
+                }}
+              >
+                Admin · Forplejning
+              </h1>
+
+              <p
+                style={{
+                  color: "#cbd5e1",
+                  margin: 0,
+                  fontSize: "16px",
+                }}
+              >
+                Tilføj, ret og slet forplejningspunkter uden ny deploy
+              </p>
+            </div>
+
             <button
-              type="submit"
+              type="button"
+              onClick={addNewItem}
               style={{
-                flex: 1,
-                minWidth: "220px",
-                padding: "16px",
-                borderRadius: "16px",
+                padding: "12px 16px",
+                borderRadius: "14px",
                 border: "none",
                 background: "#ffffff",
                 color: "#0b1220",
                 fontWeight: "bold",
-                fontSize: "16px",
-                cursor: "pointer",
-                boxShadow: "0 12px 30px rgba(0,0,0,0.25)",
-              }}
-            >
-              Gem ændringer
-            </button>
-
-            <button
-              type="button"
-              onClick={handleReset}
-              style={{
-                flex: 1,
-                minWidth: "220px",
-                padding: "16px",
-                borderRadius: "16px",
-                border: "1px solid rgba(255,255,255,0.18)",
-                background: "transparent",
-                color: "#dbe4f0",
-                fontWeight: "bold",
-                fontSize: "16px",
                 cursor: "pointer",
               }}
             >
-              Nulstil felter
+              + Tilføj punkt
             </button>
           </div>
-        </form>
+
+          {loading ? (
+            <p>Indlæser...</p>
+          ) : (
+            <>
+              {items.map((item) => (
+                <div key={item.id} style={cardStyle}>
+                  <label style={labelStyle}>Titel</label>
+                  <input
+                    type="text"
+                    value={item.title}
+                    onChange={(e) =>
+                      updateItem(item.id, "title", e.target.value)
+                    }
+                    style={inputStyle}
+                  />
+
+                  <label style={labelStyle}>Tekst</label>
+                  <textarea
+                    value={item.body}
+                    onChange={(e) =>
+                      updateItem(item.id, "body", e.target.value)
+                    }
+                    style={textareaStyle}
+                  />
+
+                  <label style={labelStyle}>Rækkefølge</label>
+                  <input
+                    type="number"
+                    value={item.sort_order}
+                    onChange={(e) =>
+                      updateItem(item.id, "sort_order", Number(e.target.value))
+                    }
+                    style={inputStyle}
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() => deleteItem(item.id)}
+                    style={{
+                      padding: "12px 16px",
+                      borderRadius: "14px",
+                      border: "1px solid rgba(255,255,255,0.18)",
+                      background: "transparent",
+                      color: "#fca5a5",
+                      fontWeight: "bold",
+                      cursor: "pointer",
+                    }}
+                  >
+                    Slet punkt
+                  </button>
+                </div>
+              ))}
+
+              <button
+                type="button"
+                onClick={handleSave}
+                style={{
+                  width: "100%",
+                  padding: "16px",
+                  borderRadius: "16px",
+                  border: "none",
+                  background: "#ffffff",
+                  color: "#0b1220",
+                  fontWeight: "bold",
+                  fontSize: "16px",
+                  cursor: "pointer",
+                  boxShadow: "0 12px 30px rgba(0,0,0,0.25)",
+                }}
+              >
+                Gem ændringer
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       {showSuccess && (
@@ -340,7 +352,6 @@ export default function AdminForplejningPage() {
           </div>
         </div>
       )}
-    </div>
     </AdminGuard>
   );
 }
