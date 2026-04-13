@@ -26,17 +26,6 @@ export default function BackButton({
         boxShadow: "0 10px 24px rgba(0,0,0,0.22)",
         backdropFilter: "blur(10px)",
         WebkitBackdropFilter: "blur(10px)",
-        transition: "all 0.2s ease",
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.transform = "translateY(-1px)";
-        e.currentTarget.style.background = "rgba(30, 41, 59, 0.82)";
-        e.currentTarget.style.border = "1px solid rgba(147, 197, 253, 0.35)";
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.transform = "translateY(0)";
-        e.currentTarget.style.background = "rgba(15, 23, 42, 0.72)";
-        e.currentTarget.style.border = "1px solid rgba(148, 163, 184, 0.22)";
       }}
     >
       <span
