@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import BackButton from "@/app/components/BackButton";
 
 type FaqItem = {
   id: number;
@@ -48,18 +49,7 @@ export default function FaqPage() {
   return (
     <div style={pageStyle}>
       <div style={wrapperStyle}>
-        <a
-          href="/bare"
-          style={{
-            display: "inline-block",
-            marginBottom: "20px",
-            color: "#cbd5e1",
-            textDecoration: "none",
-          }}
-        >
-          ← Tilbage
-        </a>
-
+        <BackButton href="/bare" />
         <h1
           style={{
             textAlign: "center",
