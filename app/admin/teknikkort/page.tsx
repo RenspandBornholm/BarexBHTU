@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import AdminGuard from "../AdminGuard";
+import BackButton from "@/components/BackButton";
 
 type TeknikkortRow = {
   id: number;
@@ -10,6 +11,7 @@ type TeknikkortRow = {
   title: string;
   image_url: string | null;
   pdf_url: string | null;
+  sort_order: number;
 };
 
 type SaveState = {
@@ -35,13 +37,23 @@ export default function AdminTeknikkortPage() {
     const { data, error } = await supabase
       .from("bare_teknikkort")
       .select("*")
-      .order("card_key", { ascending: true });
+      .order("sort_order", { ascending: true });
 
     if (!error && data) {
       setCards(data);
     }
 
     setLoading(false);
+  }
+
+  function updateCard(
+    id: number,
+    field: keyof TeknikkortRow,
+    value: string | number | null
+  ) {
+    setCards((prev) =>
+      prev.map((card) => (card.id === id ? { ...card, [field]: value } : card))
+    );
   }
 
   async function uploadFile(file: File, path: string) {
@@ -84,31 +96,71 @@ export default function AdminTeknikkortPage() {
       const { error } = await supabase
         .from("bare_teknikkort")
         .update({
+          title: card.title,
           image_url: newImageUrl,
           pdf_url: newPdfUrl,
-          updated_at: new Date().toISOString(),
+          sort_order: card.sort_order,
         })
-        .eq("card_key", card.card_key);
+        .eq("id", card.id);
 
       if (error) {
-        alert("Der skete en fejl ved gem.");
-        setSaving((prev) => ({ ...prev, [card.card_key]: false }));
-        return;
+        throw error;
       }
 
       setImageFiles((prev) => ({ ...prev, [card.card_key]: null }));
       setPdfFiles((prev) => ({ ...prev, [card.card_key]: null }));
 
-      await loadCards();
-
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 1800);
+
+      loadCards();
     } catch (err: any) {
-  console.error("Upload fejl:", err);
-  alert(`Upload fejlede: ${err?.message || err || "Ukendt fejl"}`);
-} finally {
+      console.error("Upload fejl:", err);
+      alert(`Upload fejlede: ${err?.message || err || "Ukendt fejl"}`);
+    } finally {
       setSaving((prev) => ({ ...prev, [card.card_key]: false }));
     }
+  }
+
+  async function addNewCard() {
+    const nextOrder =
+      cards.length > 0 ? Math.max(...cards.map((c) => c.sort_order)) + 1 : 1;
+
+    const cardKey = `kort-${Date.now()}`;
+
+    const { error } = await supabase.from("bare_teknikkort").insert({
+      card_key: cardKey,
+      title: "Nyt kort",
+      image_url: null,
+      pdf_url: null,
+      sort_order: nextOrder,
+    });
+
+    if (error) {
+      alert("Kunne ikke oprette nyt kort.");
+      return;
+    }
+
+    loadCards();
+  }
+
+  async function deleteCard(card: TeknikkortRow) {
+    const confirmed = window.confirm(
+      `Er du sikker på at du vil slette "${card.title}"?`
+    );
+    if (!confirmed) return;
+
+    const { error } = await supabase
+      .from("bare_teknikkort")
+      .delete()
+      .eq("id", card.id);
+
+    if (error) {
+      alert("Kunne ikke slette kortet.");
+      return;
+    }
+
+    loadCards();
   }
 
   const pageStyle = {
@@ -146,135 +198,204 @@ export default function AdminTeknikkortPage() {
 
   const inputStyle = {
     width: "100%",
-    padding: "12px",
-    marginBottom: "18px",
+    padding: "14px",
+    marginBottom: "16px",
     borderRadius: "14px",
     border: "1px solid rgba(255,255,255,0.15)",
     background: "#0f172a",
     color: "white",
-    fontSize: "15px",
+    fontSize: "16px",
     boxSizing: "border-box" as const,
   };
 
   return (
-  <AdminGuard>
-    <div style={pageStyle}>
-      <div style={wrapperStyle}>
-        <a
-          href="/admin"
-          style={{
-            display: "inline-block",
-            marginBottom: "20px",
-            color: "#cbd5e1",
-            textDecoration: "none",
-          }}
-        >
-          ← Tilbage til admin
-        </a>
+    <AdminGuard>
+      <div style={pageStyle}>
+        <div style={wrapperStyle}>
+          <BackButton href="/admin" label="Tilbage til admin" />
 
-        <h1
-          style={{
-            textAlign: "center",
-            fontSize: "clamp(30px, 6vw, 44px)",
-            margin: "0 0 10px 0",
-          }}
-        >
-          Admin · Teknikkort
-        </h1>
-
-        <p
-          style={{
-            textAlign: "center",
-            color: "#cbd5e1",
-            margin: "0 0 30px 0",
-            fontSize: "16px",
-          }}
-        >
-          Upload nye teknikkort og PDF-filer
-        </p>
-
-        {loading ? (
-          <p>Indlæser...</p>
-        ) : (
-          cards.map((card) => (
-            <div key={card.card_key} style={cardStyle}>
-              <h2 style={{ marginTop: 0 }}>{card.title}</h2>
-
-              {card.image_url ? (
-                <div
-                  style={{
-                    marginBottom: "16px",
-                    borderRadius: "16px",
-                    overflow: "hidden",
-                    border: "1px solid rgba(255,255,255,0.08)",
-                  }}
-                >
-                  <img
-                    src={card.image_url}
-                    alt={card.title}
-                    style={{
-                      display: "block",
-                      width: "100%",
-                      height: "auto",
-                    }}
-                  />
-                </div>
-              ) : (
-                <p style={{ color: "#cbd5e1" }}>Intet billede uploadet endnu.</p>
-              )}
-
-              <div style={{ marginBottom: "12px", color: "#cbd5e1" }}>
-                {card.pdf_url ? "PDF er uploadet." : "Ingen PDF uploadet endnu."}
-              </div>
-
-              <label style={labelStyle}>Nyt billede</label>
-              <input
-                type="file"
-                accept="image/*"
-                style={inputStyle}
-                onChange={(e) =>
-                  setImageFiles((prev) => ({
-                    ...prev,
-                    [card.card_key]: e.target.files?.[0] || null,
-                  }))
-                }
-              />
-
-              <label style={labelStyle}>Ny PDF</label>
-              <input
-                type="file"
-                accept="application/pdf"
-                style={inputStyle}
-                onChange={(e) =>
-                  setPdfFiles((prev) => ({
-                    ...prev,
-                    [card.card_key]: e.target.files?.[0] || null,
-                  }))
-                }
-              />
-
-              <button
-                type="button"
-                onClick={() => handleSave(card)}
-                disabled={saving[card.card_key]}
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: "12px",
+              flexWrap: "wrap",
+              marginBottom: "20px",
+            }}
+          >
+            <div>
+              <h1
                 style={{
-                  width: "100%",
-                  padding: "16px",
-                  borderRadius: "16px",
-                  border: "none",
-                  background: "#ffffff",
-                  color: "#0b1220",
-                  fontWeight: "bold",
-                  fontSize: "16px",
-                  cursor: "pointer",
-                  opacity: saving[card.card_key] ? 0.7 : 1,
+                  fontSize: "clamp(30px, 6vw, 44px)",
+                  margin: "0 0 10px 0",
                 }}
               >
-                {saving[card.card_key] ? "Gemmer..." : "Gem teknikkort"}
-              </button>
+                Admin · Teknikkort
+              </h1>
+
+              <p
+                style={{
+                  color: "#cbd5e1",
+                  margin: 0,
+                  fontSize: "16px",
+                }}
+              >
+                Tilføj, ret, slet og upload kort uden ny deploy
+              </p>
             </div>
-          ))
-        )}
+
+            <button
+              type="button"
+              onClick={addNewCard}
+              style={{
+                padding: "12px 16px",
+                borderRadius: "14px",
+                border: "none",
+                background: "#ffffff",
+                color: "#0b1220",
+                fontWeight: "bold",
+                cursor: "pointer",
+              }}
+            >
+              + Tilføj kort
+            </button>
+          </div>
+
+          {loading ? (
+            <p>Indlæser...</p>
+          ) : (
+            cards.map((card) => (
+              <div key={card.id} style={cardStyle}>
+                <label style={labelStyle}>Titel</label>
+                <input
+                  type="text"
+                  value={card.title}
+                  onChange={(e) => updateCard(card.id, "title", e.target.value)}
+                  style={inputStyle}
+                />
+
+                <label style={labelStyle}>Rækkefølge</label>
+                <input
+                  type="number"
+                  value={card.sort_order}
+                  onChange={(e) =>
+                    updateCard(card.id, "sort_order", Number(e.target.value))
+                  }
+                  style={inputStyle}
+                />
+
+                <div style={{ marginBottom: "14px", color: "#cbd5e1" }}>
+                  {card.image_url ? (
+                    <img
+                      src={card.image_url}
+                      alt={card.title}
+                      style={{
+                        width: "100%",
+                        maxHeight: "260px",
+                        objectFit: "cover",
+                        borderRadius: "14px",
+                        display: "block",
+                        marginBottom: "10px",
+                      }}
+                    />
+                  ) : (
+                    <div
+                      style={{
+                        padding: "16px",
+                        borderRadius: "14px",
+                        background: "#0f172a",
+                        border: "1px solid rgba(255,255,255,0.08)",
+                        marginBottom: "10px",
+                      }}
+                    >
+                      Intet billede uploadet endnu.
+                    </div>
+                  )}
+
+                  <div style={{ marginBottom: "8px" }}>
+                    {card.pdf_url ? "PDF uploadet." : "Ingen PDF uploadet endnu."}
+                  </div>
+                </div>
+
+                <label style={labelStyle}>Nyt billede</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) =>
+                    setImageFiles((prev) => ({
+                      ...prev,
+                      [card.card_key]: e.target.files?.[0] || null,
+                    }))
+                  }
+                  style={inputStyle}
+                />
+
+                <label style={labelStyle}>Ny PDF</label>
+                <input
+                  type="file"
+                  accept="application/pdf"
+                  onChange={(e) =>
+                    setPdfFiles((prev) => ({
+                      ...prev,
+                      [card.card_key]: e.target.files?.[0] || null,
+                    }))
+                  }
+                  style={inputStyle}
+                />
+
+                <div
+                  style={{
+                    display: "flex",
+                    gap: "12px",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => handleSave(card)}
+                    disabled={saving[card.card_key]}
+                    style={{
+                      flex: 1,
+                      minWidth: "220px",
+                      padding: "16px",
+                      borderRadius: "16px",
+                      border: "none",
+                      background: "#ffffff",
+                      color: "#0b1220",
+                      fontWeight: "bold",
+                      fontSize: "16px",
+                      cursor: "pointer",
+                      boxShadow: "0 12px 30px rgba(0,0,0,0.25)",
+                      opacity: saving[card.card_key] ? 0.7 : 1,
+                    }}
+                  >
+                    {saving[card.card_key] ? "Gemmer..." : "Gem kort"}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => deleteCard(card)}
+                    style={{
+                      flex: 1,
+                      minWidth: "220px",
+                      padding: "16px",
+                      borderRadius: "16px",
+                      border: "1px solid rgba(255,255,255,0.18)",
+                      background: "transparent",
+                      color: "#fca5a5",
+                      fontWeight: "bold",
+                      fontSize: "16px",
+                      cursor: "pointer",
+                    }}
+                  >
+                    Slet kort
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
       </div>
 
       {showSuccess && (
@@ -330,7 +451,6 @@ export default function AdminTeknikkortPage() {
           </div>
         </div>
       )}
-    </div>
-   </AdminGuard>
+    </AdminGuard>
   );
 }

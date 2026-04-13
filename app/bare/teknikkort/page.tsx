@@ -2,66 +2,32 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import BackButton from "@/components/BackButton";
 
 type Card = {
+  id: number;
   card_key: string;
   title: string;
   image_url: string | null;
   pdf_url: string | null;
+  sort_order: number;
 };
 
-const fallbackCards: Card[] = [
-  {
-    card_key: "teknikkort-1",
-    title: "Teknikkort 1",
-    image_url: "/teknikkort/teknikkort-1.png",
-    pdf_url: "/teknikkort/teknikkort-1.pdf",
-  },
-  {
-    card_key: "teknikkort-2",
-    title: "Teknikkort 2",
-    image_url: "/teknikkort/teknikkort-2.png",
-    pdf_url: "/teknikkort/teknikkort-2.pdf",
-  },
-  {
-    card_key: "teknikkort-3",
-    title: "Teknikkort 3",
-    image_url: "/teknikkort/teknikkort-3.png",
-    pdf_url: "/teknikkort/teknikkort-3.pdf",
-  },
-  {
-    card_key: "parkeringskort",
-    title: "Parkeringskort",
-    image_url: null,
-    pdf_url: null,
-  },
-];
-
 export default function TeknikkortPage() {
-  const [cards, setCards] = useState<Card[]>(fallbackCards);
+  const [cards, setCards] = useState<Card[]>([]);
   const [activeCard, setActiveCard] = useState<Card | null>(null);
   const [zoom, setZoom] = useState(1);
 
   useEffect(() => {
     async function loadCards() {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("bare_teknikkort")
         .select("*")
-        .order("card_key", { ascending: true });
+        .order("sort_order", { ascending: true });
 
-      if (!data || data.length === 0) return;
-
-      const merged = fallbackCards.map((fallback) => {
-        const db = data.find((d) => d.card_key === fallback.card_key);
-
-        return {
-          ...fallback,
-          image_url: db?.image_url || fallback.image_url,
-          pdf_url: db?.pdf_url || fallback.pdf_url,
-        };
-      });
-
-      setCards(merged);
+      if (!error && data) {
+        setCards(data);
+      }
     }
 
     loadCards();
@@ -108,19 +74,31 @@ export default function TeknikkortPage() {
     marginBottom: "22px",
   } as const;
 
+  const buttonStyle = {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "12px 16px",
+    borderRadius: "14px",
+    border: "1px solid rgba(255,255,255,0.15)",
+    background: "#0f172a",
+    color: "white",
+    textDecoration: "none",
+    fontWeight: "bold",
+    cursor: "pointer",
+  } as const;
+
   return (
     <div style={pageStyle}>
       <div style={wrapperStyle}>
-        <a href="/bare" style={{ color: "#cbd5e1" }}>
-          ← Tilbage
-        </a>
+        <BackButton href="/bare" />
 
         <h1 style={{ textAlign: "center", marginBottom: "30px" }}>
           Teknikkort
         </h1>
 
         {cards.map((card) => (
-          <div key={card.card_key} style={cardStyle}>
+          <div key={card.id} style={cardStyle}>
             <h2>{card.title}</h2>
 
             <div
@@ -132,24 +110,28 @@ export default function TeknikkortPage() {
               }}
             >
               {card.image_url ? (
-                <img src={card.image_url} style={{ width: "100%" }} />
+                <img
+                  src={card.image_url}
+                  alt={card.title}
+                  style={{ width: "100%", display: "block" }}
+                />
               ) : (
                 <div style={{ padding: "20px", color: "#cbd5e1" }}>
-                  {card.card_key === "parkeringskort"
-                    ? "Her kommer parkeringskortet."
-                    : "Intet kort uploadet endnu."}
+                  Intet kort uploadet endnu.
                 </div>
               )}
             </div>
 
             <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-              <button onClick={() => openModal(card)}>Åbn kort</button>
+              <button style={buttonStyle} onClick={() => openModal(card)}>
+                Åbn kort
+              </button>
 
-              {card.pdf_url && (
-                <a href={card.pdf_url} download>
+              {card.pdf_url ? (
+                <a style={buttonStyle} href={card.pdf_url} download>
                   Download PDF
                 </a>
-              )}
+              ) : null}
             </div>
           </div>
         ))}
@@ -166,17 +148,49 @@ export default function TeknikkortPage() {
             padding: "10px",
           }}
         >
-          <div onClick={(e) => e.stopPropagation()}>
-            <button onClick={zoomOut}>-</button>
-            <button onClick={zoomIn}>+</button>
-            <button onClick={closeModal}>Luk</button>
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              maxWidth: "1000px",
+              margin: "0 auto",
+              background: "#0b1220",
+              borderRadius: "18px",
+              padding: "14px",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                gap: "10px",
+                marginBottom: "12px",
+                flexWrap: "wrap",
+              }}
+            >
+              <button style={buttonStyle} onClick={zoomOut}>
+                −
+              </button>
+              <button style={buttonStyle} onClick={zoomIn}>
+                +
+              </button>
+              <button style={buttonStyle} onClick={closeModal}>
+                Luk
+              </button>
+            </div>
 
-            <div style={{ overflow: "auto" }}>
+            <div
+              style={{
+                overflow: "auto",
+                maxHeight: "80vh",
+                borderRadius: "12px",
+              }}
+            >
               <img
                 src={activeCard.image_url}
+                alt={activeCard.title}
                 style={{
                   transform: `scale(${zoom})`,
                   transformOrigin: "top left",
+                  display: "block",
                 }}
               />
             </div>
