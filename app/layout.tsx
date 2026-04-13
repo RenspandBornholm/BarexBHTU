@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -15,10 +15,28 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "MedarbejderPortal",
   description: "BARE og BHTU medarbejderportal",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "MedarbejderPortal",
+  },
+  formatDetection: {
+    telephone: false,
+  },
   icons: {
     icon: "/icon.png",
     apple: "/icon.png",
+    shortcut: "/icon.png",
   },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#08101c",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
