@@ -88,7 +88,17 @@ export default function TeknikkortPage() {
     cursor: "pointer",
   } as const;
 
-  return (
+  function getPdfUrl(card: Card) {
+  if (card.pdf_url) return card.pdf_url;
+
+  if (card.card_key === "teknikkort-1") return "/teknikkort/teknikkort-1.pdf";
+  if (card.card_key === "teknikkort-2") return "/teknikkort/teknikkort-2.pdf";
+  if (card.card_key === "teknikkort-3") return "/teknikkort/teknikkort-3.pdf";
+
+  return null;
+}
+
+return (
     <div style={pageStyle}>
       <div style={wrapperStyle}>
         <BackButton href="/bare" />
@@ -127,11 +137,11 @@ export default function TeknikkortPage() {
                 Åbn kort
               </button>
 
-              {card.pdf_url ? (
-                <a style={buttonStyle} href={card.pdf_url} download>
-                  Download PDF
-                </a>
-              ) : null}
+              {getPdfUrl(card) ? (
+  <a style={buttonStyle} href={getPdfUrl(card)!} download>
+    Download PDF
+  </a>
+) : null}
             </div>
           </div>
         ))}
