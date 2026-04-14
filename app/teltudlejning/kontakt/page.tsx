@@ -15,6 +15,7 @@ type Contact = {
 
 export default function TeltudlejningKontaktPage() {
   const [contacts, setContacts] = useState<Contact[]>([]);
+  const [bhtuLogo, setBhtuLogo] = useState<string>("");
 
   useEffect(() => {
     async function loadContacts() {
@@ -27,6 +28,16 @@ export default function TeltudlejningKontaktPage() {
 
       if (!error && data) {
         setContacts(data);
+      }
+
+      const { data: settingsData, error: settingsError } = await supabase
+        .from("portal_settings")
+        .select("key, value")
+        .eq("key", "bhtu_logo")
+        .single();
+
+      if (!settingsError && settingsData?.value) {
+        setBhtuLogo(settingsData.value);
       }
     }
 
@@ -123,6 +134,22 @@ export default function TeltudlejningKontaktPage() {
         >
           ← Tilbage
         </a>
+
+        {bhtuLogo ? (
+          <div style={{ textAlign: "center", marginBottom: "20px" }}>
+            <img
+              src={bhtuLogo}
+              alt="BHTU logo"
+              style={{
+                maxWidth: "260px",
+                width: "100%",
+                height: "auto",
+                display: "inline-block",
+                borderRadius: "18px",
+              }}
+            />
+          </div>
+        ) : null}
 
         <h1
           style={{

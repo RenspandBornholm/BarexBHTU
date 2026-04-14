@@ -1,4 +1,31 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabaseClient";
+
 export default function Page() {
+  const [bareLogo, setBareLogo] = useState<string>("");
+  const [bhtuLogo, setBhtuLogo] = useState<string>("");
+
+  useEffect(() => {
+    async function loadLogos() {
+      const { data, error } = await supabase
+        .from("portal_settings")
+        .select("key, value")
+        .in("key", ["bare_logo", "bhtu_logo"]);
+
+      if (!error && data) {
+        const bare = data.find((item) => item.key === "bare_logo")?.value || "";
+        const bhtu = data.find((item) => item.key === "bhtu_logo")?.value || "";
+
+        setBareLogo(bare);
+        setBhtuLogo(bhtu);
+      }
+    }
+
+    loadLogos();
+  }, []);
+
   return (
     <div
       style={{
@@ -62,7 +89,7 @@ export default function Page() {
           }}
         >
           <img
-            src="/bare-logo.png"
+            src={bareLogo || "/bare-logo.png"}
             alt="BARE Events"
             style={{
               maxWidth: "70%",
@@ -97,7 +124,7 @@ export default function Page() {
           }}
         >
           <img
-            src="/teltudlejning-logo.png"
+            src={bhtuLogo || "/teltudlejning-logo.png"}
             alt="Bornholms Teltudlejning"
             style={{
               maxWidth: "75%",

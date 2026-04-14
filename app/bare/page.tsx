@@ -1,4 +1,27 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabaseClient";
+
 export default function BarePage() {
+  const [bareLogo, setBareLogo] = useState<string>("");
+
+  useEffect(() => {
+    async function loadBareLogo() {
+      const { data, error } = await supabase
+        .from("portal_settings")
+        .select("key, value")
+        .eq("key", "bare_logo")
+        .single();
+
+      if (!error && data?.value) {
+        setBareLogo(data.value);
+      }
+    }
+
+    loadBareLogo();
+  }, []);
+
   const pageStyle = {
     minHeight: "100vh",
     background: "radial-gradient(circle at top, #13213b 0%, #0b1220 45%, #08101c 100%)",
@@ -72,7 +95,8 @@ export default function BarePage() {
               width: "210px",
               height: "210px",
               borderRadius: "999px",
-              background: "radial-gradient(circle, rgba(34,197,94,0.18) 0%, rgba(34,197,94,0.06) 45%, rgba(34,197,94,0) 72%)",
+              background:
+                "radial-gradient(circle, rgba(34,197,94,0.18) 0%, rgba(34,197,94,0.06) 45%, rgba(34,197,94,0) 72%)",
               filter: "blur(10px)",
               top: "-28px",
             }}
@@ -88,7 +112,7 @@ export default function BarePage() {
             }}
           >
             <img
-              src="/bare-logo.png"
+              src={bareLogo || "/bare-logo.png"}
               alt="BARE logo"
               style={{
                 display: "block",

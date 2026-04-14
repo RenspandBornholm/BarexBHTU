@@ -179,6 +179,13 @@ export default function AdminPage() {
             Ret arbejdstøj, mødetid og praktisk info
           </p>
         </a>
+
+        <a href="/admin/settings" style={cardStyle}>
+          <h2 style={{ margin: "0 0 8px 0", fontSize: "26px" }}>Logoer</h2>
+          <p style={{ margin: 0, color: "#dbe4f0" }}>
+            Upload og skift logo for BARE og BHTU
+          </p>
+        </a>
       </div>
     </div>
   );
